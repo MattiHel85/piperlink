@@ -1,67 +1,65 @@
+import express, { Request, Response, NextFunction } from 'express';
 import * as fs from 'fs';
-import * as zlib from 'zlib';
-import * as readline from 'readline';
-import * as path from 'path';
+import multer from 'multer';
+import mongoose from 'mongoose';
+import { GridFSBucket } from 'mongodb';
+import zlib from 'zlib';
+import path from 'path';
 import os from 'os';
-import express from 'express';
 
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
+
+const app = express();
+const upload = multer({ dest: 'uploads/' });
+
+const mongoUrl = 'mongodb+srv://mattrcsimpson:fvBMFuqnNFd0Qjy8@cluster0.0vx3brm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+
+mongoose.connect(mongoUrl);
+
+const connection = mongoose.connection;
+
+connection.on('error', console.error.bind(console, 'connection error:'));
+
+connection.once('open', () => {
+    console.log('Connected to MongoDB Atlas');
 });
-// const app = express();
 
-// app.get('/', (req, res) => {
-//     res.send('Hello, World!');
-// });
+app.post('/compress', upload.single('file'), async(req: Request, res: Response) => {
+    try {
+        const file = req.file;
 
-// app.listen(3000, () => {
-//     console.log('Server is running on port 3000');
-// });
-
-rl.question('Enter file names (separated by comma): ', (inputFileNames) => {
-    rl.question('Name your compressed folder (or leave blank): ', (folderName) => {
-        if (!folderName.trim()){
-            const date = new Date();
-            folderName = date.toISOString().slice(0, 10).replace(/-/g, '');
+        if (!file) {
+            return res.status(400).send('No file uploaded');
         }
 
-        const desktopFolder = path.join(os.homedir(),'Desktop');
-        const outputFolder = path.join(desktopFolder, 'PiperLink Files');
-        const fileNames = inputFileNames.split(',').map(name => name.trim());
+        const readStream = zlib.createGzip();
+        const outputFileName = `${path.basename(file.originalname, path.extname(file.originalname))}-piperlink.gz`;
 
-        // if(!fs.existsSync(inputFileName)){
-        //     console.log(`${inputFileName} does not exist`);
-        //     rl.close();
-        // }
+        const bucket = new GridFSBucket(connection.db, {
+            bucketName: 'piperlink'
+        });
 
-        if(!fs.existsSync(outputFolder)){
-            fs.mkdirSync(outputFolder);
-        }
+        const uploadStream = bucket.openUploadStream(outputFileName);
 
-        fileNames.forEach((fileName) => {
-            if(!fs.existsSync(fileName)){
-                console.log(`${fileName} does not exist`);
-                rl.close();
-            }
+        uploadStream.on('finish', () => {
+            console.log('File uploaded to MongoDB Atlas');
+            res.send('File compressed and uploaded to MongoDB Atlas successfully');
+        });
 
-            // const outputFileName = `${path.basename(fileName, path.extname(fileName))}-compressed.gz`;
-            const outputFileName = `${path.basename(fileName, path.extname(folderName))}-compressed.gz`;
-            const outputPath = path.join(outputFolder, outputFileName);
+        uploadStream.on('error', (error) => {
+            console.error('Error uploading to MongoDB Atlas', error);
+            res.status(500).send('Error uploading to MongoDB Atlas');
+        });
 
-            const readStream = fs.createReadStream(fileName);
-            const writeStream = fs.createWriteStream(outputPath);
+        readStream.pipe(uploadStream);
+        fs.createReadStream(file.path).pipe(readStream);
+    
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Server error');
+    }
+    
+});
 
-            const gzip = zlib.createGzip();
-
-            readStream.pipe(gzip).pipe(writeStream);
-
-            writeStream.on('finish', () => {
-                console.log(`File ${fileName} compressed successfully. Compressed file: ${outputPath}`);
-                // rl.close();
-            })
-        })
-
-        rl.close();
-    })
-})
+app.listen(3000, () => {
+    console.log('Server is running on port 3000');
+});
