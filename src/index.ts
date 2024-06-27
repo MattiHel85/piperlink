@@ -2,8 +2,8 @@ import express, { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import mongoose from 'mongoose';
 
-import compressAndUpload from './routes/compressRoutes';
-
+const uploadRoutes = require('./routes/uploadRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
@@ -23,7 +23,7 @@ connection.once('open', () => {
 // This route handles the POST request to upload a file. It uses multer middleware to process the file upload.
 // After the file is processed, it calls the compressAndUpload function to compress the file and upload it to MongoDB.
 app.post('/api/v1/upload', upload.single('file'), async (req: Request, res: Response) => {
-    compressAndUpload(req, res, connection);
+    uploadRoutes(req, res, connection);
 });
 
 // This starts the server and listens on port 3000. When the server starts, it logs a message to the console.

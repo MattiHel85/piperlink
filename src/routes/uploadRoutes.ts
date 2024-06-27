@@ -1,15 +1,10 @@
-import express, { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { GridFSBucket } from 'mongodb';
 import zlib from 'zlib';
 import path from 'path';
 import * as fs from 'fs';
-const router = express.Router();
 
-// router.get('/home', (req: Request, res: Response) => {
-//     res.send('Hi!');
-// });
-
-const compressAndUpload = async (req: Request, res: Response, connection: any) => {
+const upload = async (req: Request, res: Response, connection: any) => {
     try {
         const file = req.file;
 
@@ -46,4 +41,4 @@ const compressAndUpload = async (req: Request, res: Response, connection: any) =
     
 };
 
-export default compressAndUpload;
+export default upload;
